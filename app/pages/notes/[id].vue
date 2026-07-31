@@ -6,7 +6,7 @@ import {
   setTitleCommand,
   toggleTodoCommand
 } from '~/domain/notes/noteCommands'
-import { isDraftWorthRestoring, cloneNote } from '~/domain/notes/noteDraft'
+import { isDraftWorthRestoring, cloneNote, isNoteEmpty } from '~/domain/notes/noteDraft'
 import type { Note } from '~/types/note'
 
 const route = useRoute()
@@ -80,8 +80,23 @@ async function resolveDraftOnOpen() {
   draftPersistenceEnabled.value = true
 }
 
+const isDirty = computed(() =>
+  isDraftWorthRestoring(toRaw(draft.value), sourceNote.value ? toRaw(sourceNote.value) : null)
+)
+
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  if (!draftPersistenceEnabled.value || !isDirty.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
 onMounted(() => {
   void resolveDraftOnOpen()
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
 })
 
 function addTodo(text: string) {
@@ -115,7 +130,17 @@ function leaveEditor() {
   router.push('/')
 }
 
-function save() {
+async function save() {
+  if (isNoteEmpty(draft.value)) {
+    await confirm({
+      title: 'Пустая заметка',
+      message: 'Добавьте название или хотя бы один пункт списка - пустую заметку сохранить нельзя.',
+      confirmLabel: 'Понятно',
+      cancelLabel: 'Закрыть'
+    })
+    return
+  }
+
   store.reload()
   if (!isCreating && !store.getNoteById(draft.value.id)) {
     leaveEditor()
@@ -185,17 +210,60 @@ watch(notFound, (isMissing) => {
       <footer class="edit-page__actions">
         <div class="edit-page__actions-inner">
           <div class="edit-page__actions-left">
-            <BaseButton v-if="!isCreating" variant="ghost" @click="removeNote">Удалить</BaseButton>
-            <BaseButton variant="ghost" :disabled="!history.canUndo.value" @click="history.undo">
-              ↩ Отменить действие
+            <BaseButton
+              v-if="!isCreating"
+              class="edit-page__action"
+              variant="ghost"
+              aria-label="Удалить"
+              title="Удалить"
+              @click="removeNote"
+            >
+              <Icon name="trash" />
+              <span class="edit-page__action-label">Удалить</span>
             </BaseButton>
-            <BaseButton variant="ghost" :disabled="!history.canRedo.value" @click="history.redo">
-              ↪ Повторить действие
+            <BaseButton
+              class="edit-page__action"
+              variant="ghost"
+              aria-label="Отменить действие"
+              title="Отменить действие"
+              :disabled="!history.canUndo.value"
+              @click="history.undo"
+            >
+              <Icon name="undo" />
+              <span class="edit-page__action-label">Отменить</span>
+            </BaseButton>
+            <BaseButton
+              class="edit-page__action"
+              variant="ghost"
+              aria-label="Повторить действие"
+              title="Повторить действие"
+              :disabled="!history.canRedo.value"
+              @click="history.redo"
+            >
+              <Icon name="redo" />
+              <span class="edit-page__action-label">Повторить</span>
             </BaseButton>
           </div>
           <div class="edit-page__actions-right">
-            <BaseButton variant="ghost" @click="cancelEditing">Отменить</BaseButton>
-            <BaseButton @click="save">Сохранить</BaseButton>
+            <BaseButton
+              class="edit-page__action"
+              variant="ghost"
+              aria-label="Отменить редактирование"
+              title="Отменить редактирование"
+              @click="cancelEditing"
+            >
+              <Icon name="close" />
+              <span class="edit-page__action-label">Отменить</span>
+            </BaseButton>
+            <BaseButton
+              class="edit-page__action"
+              aria-label="Сохранить"
+              title="Сохранить"
+              @click="save"
+            >
+              <Icon name="check" />
+              <span class="edit-page__action-label">Сохранить</span>
+            </BaseButton>
           </div>
         </div>
       </footer>
@@ -211,13 +279,17 @@ watch(notFound, (isMissing) => {
   height: 100%;
   max-width: v.$breakpoint-md;
   margin: 0 auto;
-  padding: v.$space-md v.$space-md;
-  // Место под плавающую панель: список занимает оставшуюся высоту, страница не скроллится.
-  padding-bottom: calc(#{v.$space-lg * 3} + 4.5rem);
+  padding: v.$space-md;
+  // Одна строка кнопок - запас снизу компактный на любой ширине.
+  padding-bottom: calc(#{v.$space-md} + 4.5rem);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
+
+  @include m.from(v.$breakpoint-md) {
+    padding-bottom: calc(#{v.$space-lg * 2} + 4.5rem);
+  }
 
   :deep(.todo-list) {
     flex: 1;
@@ -242,38 +314,78 @@ watch(notFound, (isMissing) => {
   margin-bottom: v.$space-md;
 }
 
-// Панель действий плавает над низом экрана с отступом: список пунктов может
-// расти и сжиматься, но кнопки undo/redo не должны прыгать под курсором.
+// Панель всегда в одну строку: на узком экране только иконки, текст - с md.
 .edit-page__actions {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: v.$space-lg * 3;
+  bottom: v.$space-md;
   display: flex;
   justify-content: center;
-  // Пустое место вокруг плавающей панели не должно перехватывать клики.
+  padding: 0 v.$space-sm;
   pointer-events: none;
+
+  @include m.from(v.$breakpoint-md) {
+    bottom: v.$space-lg * 2;
+    padding: 0;
+  }
 }
 
 .edit-page__actions-inner {
   @include m.card;
-  width: min(v.$breakpoint-md, 100% - v.$space-lg * 2);
-  padding: v.$space-sm v.$space-md;
+  width: min(v.$breakpoint-md, 100%);
+  padding: v.$space-xs;
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: v.$space-sm;
+  gap: v.$space-xs;
   pointer-events: auto;
+
+  @include m.from(v.$breakpoint-sm) {
+    width: min(v.$breakpoint-md, 100% - v.$space-lg * 2);
+    padding: v.$space-sm;
+    gap: v.$space-sm;
+  }
+
+  :deep(.edit-page__action) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: v.$space-xs;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: v.$space-sm;
+
+    @include m.from(v.$breakpoint-md) {
+      min-width: 0;
+      padding: v.$space-sm v.$space-md;
+    }
+  }
 }
 
 .edit-page__actions-left,
 .edit-page__actions-right {
   display: flex;
-  gap: v.$space-sm;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: v.$space-xs;
+
+  @include m.from(v.$breakpoint-sm) {
+    gap: v.$space-sm;
+  }
 }
 
 .edit-page__actions-right {
   margin-left: auto;
+}
+
+.edit-page__action-label {
+  display: none;
+
+  @include m.from(v.$breakpoint-md) {
+    display: inline;
+  }
 }
 </style>

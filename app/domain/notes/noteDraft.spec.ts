@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Note } from '~/types/note'
-import { cloneNote, isDraftWorthRestoring, noteBodyEqual } from './noteDraft'
+import { cloneNote, isDraftWorthRestoring, isNoteEmpty, noteBodyEqual } from './noteDraft'
 
 function note(partial: Partial<Note> = {}): Note {
   return {
@@ -43,6 +43,18 @@ describe('isDraftWorthRestoring', () => {
     const baseline = note({ title: 'Сохранено' })
     expect(isDraftWorthRestoring(note({ title: 'Сохранено' }), baseline)).toBe(false)
     expect(isDraftWorthRestoring(note({ title: 'Изменено' }), baseline)).toBe(true)
+  })
+})
+
+describe('isNoteEmpty', () => {
+  it('считает пустой заметку без названия и пунктов', () => {
+    expect(isNoteEmpty(note())).toBe(true)
+    expect(isNoteEmpty(note({ title: '   ' }))).toBe(true)
+  })
+
+  it('не считает пустой заметку с названием или пунктами', () => {
+    expect(isNoteEmpty(note({ title: 'Список' }))).toBe(false)
+    expect(isNoteEmpty(note({ todos: [{ id: 't', text: 'x', done: false }] }))).toBe(false)
   })
 })
 

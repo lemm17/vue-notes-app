@@ -21,6 +21,11 @@ export function isDraftWorthRestoring(draft: Note, baseline: Note | null): boole
   return !noteBodyEqual(draft, baseline)
 }
 
+/** Заметка без названия и без пунктов - сохранять нечего. */
+export function isNoteEmpty(note: Note): boolean {
+  return note.title.trim() === '' && note.todos.length === 0
+}
+
 /**
  * Глубокая копия заметки без Vue-прокси: structuredClone на вложенных
  * reactive-обёртках падает, а JSON-сериализация даёт обычные объекты.

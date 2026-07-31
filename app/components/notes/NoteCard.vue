@@ -11,21 +11,29 @@ const hiddenTodosCount = computed(() => props.note.todos.length - previewTodos.v
 
 <template>
   <article class="note-card">
-    <h2 class="note-card__title">{{ note.title || 'Без названия' }}</h2>
+    <NuxtLink :to="`/notes/${note.id}`" class="note-card__link">
+      <h2 class="note-card__title">{{ note.title || 'Без названия' }}</h2>
 
-    <ul v-if="previewTodos.length" class="note-card__todos">
-      <li v-for="todo in previewTodos" :key="todo.id" class="note-card__todo">
-        <input type="checkbox" :checked="todo.done" disabled />
-        <span :class="{ 'note-card__todo-text--done': todo.done }">{{ todo.text }}</span>
-      </li>
-    </ul>
+      <ul v-if="previewTodos.length" class="note-card__todos">
+        <li v-for="todo in previewTodos" :key="todo.id" class="note-card__todo">
+          <input type="checkbox" :checked="todo.done" disabled tabindex="-1" />
+          <span :class="{ 'note-card__todo-text--done': todo.done }">
+            {{ todo.text || 'Без текста' }}
+          </span>
+        </li>
+      </ul>
 
-    <p v-if="hiddenTodosCount > 0" class="note-card__more">и ещё {{ hiddenTodosCount }}</p>
+      <p v-if="hiddenTodosCount > 0" class="note-card__more">и ещё {{ hiddenTodosCount }}</p>
+    </NuxtLink>
 
-    <footer class="note-card__actions">
-      <NuxtLink :to="`/notes/${note.id}`" class="note-card__edit-link">Изменить</NuxtLink>
-      <BaseButton variant="ghost" @click="$emit('delete')">Удалить</BaseButton>
-    </footer>
+    <BaseButton
+      class="note-card__delete"
+      variant="ghost"
+      aria-label="Удалить заметку"
+      @click="$emit('delete')"
+    >
+      Удалить
+    </BaseButton>
   </article>
 </template>
 
@@ -35,10 +43,44 @@ const hiddenTodosCount = computed(() => props.note.todos.length - previewTodos.v
 
 .note-card {
   @include m.card;
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: v.$space-md;
+  height: 100%;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:hover,
+  &:focus-within {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 10px 28px rgba(31, 36, 48, 0.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: box-shadow 0.18s ease;
+
+    &:hover,
+    &:focus-within {
+      transform: none;
+    }
+  }
+}
+
+.note-card__link {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   gap: v.$space-sm;
+  padding: v.$space-md;
+  padding-bottom: v.$space-sm;
+  color: inherit;
+  text-decoration: none;
+  border-radius: v.$radius-md;
+
+  &:focus-visible {
+    outline: none;
+  }
 }
 
 .note-card__title {
@@ -70,16 +112,8 @@ const hiddenTodosCount = computed(() => props.note.todos.length - previewTodos.v
   color: v.$color-text-muted;
 }
 
-.note-card__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-  padding-top: v.$space-sm;
-}
-
-.note-card__edit-link {
-  font-size: v.$font-size-sm;
-  color: v.$color-primary;
+.note-card__delete {
+  align-self: flex-end;
+  margin: 0 v.$space-sm v.$space-sm;
 }
 </style>
