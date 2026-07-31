@@ -1,0 +1,39 @@
+// Цвета
+$color-bg: #f5f6f8;
+$color-surface: #ffffff;
+$color-border: #e0e2e7;
+$color-text: #1f2430;
+$color-text-muted: #6b7280;
+$color-primary: #3b5bfd;
+$color-primary-hover: #2d47cf;
+$color-danger: #e5484d;
+$color-danger-hover: #c8383d;
+$color-focus-ring: #3b5bfd;
+
+// Типографика
+$font-family-base:
+  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+$font-size-base: 15px;
+$font-size-sm: 13px;
+$font-size-lg: 20px;
+
+// Отступы
+$space-xs: 4px;
+$space-sm: 8px;
+$space-md: 16px;
+$space-lg: 24px;
+$space-xl: 32px;
+
+// Скругления и тени
+$radius-sm: 6px;
+$radius-md: 10px;
+$shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+$shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.22);
+
+// Брейкпоинты
+$breakpoint-sm: 480px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1100px;
+
+// Z-индексы
+$z-modal: 1000;
