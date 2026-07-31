@@ -7,17 +7,32 @@ SPA-приложение для заметок со встроенными сп�
 ## Стек
 
 - [Nuxt 4](https://nuxt.com/) (Composition API, TypeScript strict)
-- [Pinia](https://pinia.vuejs.org/) — управление состоянием
-- SCSS — своя вёрстка без UI-библиотек
-- [Vitest](https://vitest.dev/) — юнит-тесты
+- [Pinia](https://pinia.vuejs.org/) - управление состоянием
+- SCSS - своя вёрстка без UI-библиотек
+- [Vitest](https://vitest.dev/) - юнит-тесты
+- Docker + nginx - production-сборка в контейнере
 
-## Разработка
+## Разработка без Docker
 
 ```bash
 npm install
-npm run dev        # запуск дев-сервера на http://localhost:3000
-npm run test        # юнит-тесты
-npm run lint         # проверка кода
-npm run typecheck    # проверка типов
-npm run build        # production-сборка
+npm run dev        # http://localhost:3000
+npm run test
+npm run lint
+npm run typecheck
+npm run build
 ```
+
+## Запуск через Docker
+
+Контейнер собирает production-версию приложения и отдаёт её через nginx.
+
+```bash
+# Собрать образ и поднять контейнер
+docker compose up --build
+
+# Остановить
+docker compose down
+```
+
+Приложение будет доступно по адресу: **http://localhost:8080**
