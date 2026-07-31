@@ -2,12 +2,24 @@
 import type { TodoItem } from '~/types/note'
 
 const props = defineProps<{ todo: TodoItem }>()
-const emit = defineEmits<{ toggle: []; remove: []; 'update:text': [value: string] }>()
+const emit = defineEmits<{
+  toggle: []
+  remove: []
+  'update:text': [value: string]
+  'commit-text': [from: string, to: string]
+}>()
 
 const text = computed({
   get: () => props.todo.text,
   set: (value: string) => emit('update:text', value)
 })
+
+const appConfig = useAppConfig()
+const { handleFocus, handleBlur } = useCommittedTextField(
+  () => props.todo.text,
+  appConfig.history.inputIdleDelay,
+  (from, to) => emit('commit-text', from, to)
+)
 </script>
 
 <template>
@@ -23,6 +35,8 @@ const text = computed({
       v-model="text"
       class="todo-row__text"
       :class="{ 'todo-row__text--done': todo.done }"
+      @focus="handleFocus"
+      @blur="handleBlur"
     />
     <BaseButton variant="ghost" aria-label="Удалить пункт" @click="emit('remove')">✕</BaseButton>
   </li>

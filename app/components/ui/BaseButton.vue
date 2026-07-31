@@ -20,11 +20,16 @@ withDefaults(defineProps<{ variant?: 'primary' | 'ghost' | 'danger' }>(), { vari
   cursor: pointer;
   transition: background-color 0.15s ease;
 
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   &--primary {
     background: v.$color-primary;
     color: #fff;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: v.$color-primary-hover;
     }
   }
@@ -33,7 +38,7 @@ withDefaults(defineProps<{ variant?: 'primary' | 'ghost' | 'danger' }>(), { vari
     background: v.$color-danger;
     color: #fff;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: v.$color-danger-hover;
     }
   }
@@ -43,7 +48,7 @@ withDefaults(defineProps<{ variant?: 'primary' | 'ghost' | 'danger' }>(), { vari
     border-color: v.$color-border;
     color: v.$color-text;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: v.$color-bg;
     }
   }
