@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { defineStore } from 'pinia'
+import { createCrossTabSync } from '~/lib/storage/createCrossTabSync'
 import { LocalStorageRepository } from '~/lib/storage/LocalStorageRepository'
 import type { Note } from '~/types/note'
 
@@ -29,6 +30,10 @@ export function createNotesActions(notes: Ref<Note[]>, repository: LocalStorageR
   return { getNoteById, saveNote, deleteNote, reload }
 }
 
+function clearDraft(key: string, schemaVersion: number) {
+  new LocalStorageRepository<Note>(key, schemaVersion).clear()
+}
+
 export const useNotesStore = defineStore('notes', () => {
   const config = useAppConfig()
   const repository = new LocalStorageRepository<Note[]>(
@@ -36,6 +41,34 @@ export const useNotesStore = defineStore('notes', () => {
     config.storage.schemaVersion
   )
   const notes = ref<Note[]>(repository.load() ?? [])
+  const actions = createNotesActions(notes, repository)
 
-  return { notes, ...createNotesActions(notes, repository) }
+  const sync = import.meta.client
+    ? createCrossTabSync({
+        storageKey: config.storage.notesKey,
+        channelName: `${config.storage.notesKey}:sync`,
+        onRemoteChange: actions.reload
+      })
+    : null
+
+  function saveNote(note: Note) {
+    actions.saveNote(note)
+    sync?.notify()
+  }
+
+  // Черновик удалённой заметки больше не нужен - иначе после перезагрузки
+  // предложится восстановление уже несуществующей записи.
+  function deleteNote(id: string) {
+    actions.deleteNote(id)
+    clearDraft(`${config.storage.draftKeyPrefix}${id}`, config.storage.schemaVersion)
+    sync?.notify()
+  }
+
+  return {
+    notes,
+    getNoteById: actions.getNoteById,
+    saveNote,
+    deleteNote,
+    reload: actions.reload
+  }
 })

@@ -123,7 +123,7 @@ onUnmounted(() => window.removeEventListener('resize', updateScrollState))
 .todo-list__frame {
   @include m.card;
   position: relative;
-  // По контенту, но не выше доступного места на странице — дальше скролл внутри.
+  // По контенту, но не выше доступного места на странице - дальше скролл внутри.
   flex: 0 1 auto;
   min-height: 0;
   display: flex;

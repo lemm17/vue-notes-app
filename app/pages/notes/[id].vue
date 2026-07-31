@@ -6,6 +6,7 @@ import {
   setTitleCommand,
   toggleTodoCommand
 } from '~/domain/notes/noteCommands'
+import { isDraftWorthRestoring, cloneNote } from '~/domain/notes/noteDraft'
 import type { Note } from '~/types/note'
 
 const route = useRoute()
@@ -15,10 +16,11 @@ const appConfig = useAppConfig()
 const { confirm } = useConfirm()
 
 const isCreating = route.params.id === 'new'
-const sourceNote = computed(() =>
-  isCreating ? null : store.getNoteById(route.params.id as string)
-)
+const noteId = route.params.id as string
+const sourceNote = computed(() => (isCreating ? null : store.getNoteById(noteId)))
 const notFound = computed(() => !isCreating && !sourceNote.value)
+
+const draftStorageKey = `${appConfig.storage.draftKeyPrefix}${isCreating ? 'new' : noteId}`
 
 const createEmptyNote = (): Note => ({
   id: crypto.randomUUID(),
@@ -27,15 +29,60 @@ const createEmptyNote = (): Note => ({
   updatedAt: Date.now()
 })
 
-const draft = ref<Note>(structuredClone(toRaw(sourceNote.value) ?? createEmptyNote()))
+const draft = ref<Note>(cloneNote(sourceNote.value ?? createEmptyNote()))
 const history = useHistory(draft, appConfig.history.limit)
 useUndoRedoShortcuts(history.undo, history.redo)
+
+// Пока разбираемся с диалогом восстановления - в хранилище ничего не пишем.
+const draftPersistenceEnabled = ref(false)
+const persistedDraft = usePersistedNoteDraft(draftStorageKey, draft, {
+  schemaVersion: appConfig.storage.schemaVersion,
+  delayMs: appConfig.storage.persistDelay,
+  enabled: draftPersistenceEnabled,
+  getBaseline: () => (sourceNote.value ? toRaw(sourceNote.value) : null),
+  onRemoteUpdate: (note) => {
+    draft.value = note
+    history.reset()
+  }
+})
 
 const { handleFocus: handleTitleFocus, handleBlur: handleTitleBlur } = useCommittedTextField(
   () => draft.value.title,
   appConfig.history.inputIdleDelay,
   (from, to) => history.record(setTitleCommand(from, to))
 )
+
+async function resolveDraftOnOpen() {
+  if (notFound.value) {
+    persistedDraft.clear()
+    return
+  }
+
+  const saved = persistedDraft.load()
+  const baseline = sourceNote.value ? toRaw(sourceNote.value) : null
+
+  if (saved && isDraftWorthRestoring(saved, baseline)) {
+    const restore = await confirm({
+      title: 'Восстановить черновик?',
+      message: 'Найдены несохранённые изменения. Восстановить их или начать заново?',
+      confirmLabel: 'Восстановить',
+      cancelLabel: 'Отбросить'
+    })
+
+    if (restore) {
+      draft.value = cloneNote(saved)
+      history.reset()
+    } else {
+      persistedDraft.clear()
+    }
+  }
+
+  draftPersistenceEnabled.value = true
+}
+
+onMounted(() => {
+  void resolveDraftOnOpen()
+})
 
 function addTodo(text: string) {
   history.perform(addTodoCommand({ id: crypto.randomUUID(), text, done: false }))
@@ -52,7 +99,7 @@ function toggleTodo(id: string) {
 }
 
 // Текст пункта обновляется в черновике сразу при вводе (для отзывчивости
-// поля), а в историю попадает отдельно — по blur/паузе, через commit-text.
+// поля), а в историю попадает отдельно - по blur/паузе, через commit-text.
 function updateTodoText(id: string, text: string) {
   const todo = draft.value.todos.find((item) => item.id === id)
   if (todo) todo.text = text
@@ -62,16 +109,21 @@ function commitTodoText(id: string, from: string, to: string) {
   history.record(editTodoTextCommand(id, from, to))
 }
 
+function leaveEditor() {
+  persistedDraft.clear()
+  history.reset()
+  router.push('/')
+}
+
 function save() {
   store.reload()
   if (!isCreating && !store.getNoteById(draft.value.id)) {
-    router.push('/')
+    leaveEditor()
     return
   }
   draft.value.updatedAt = Date.now()
-  store.saveNote(draft.value)
-  history.reset()
-  router.push('/')
+  store.saveNote(cloneNote(draft.value))
+  leaveEditor()
 }
 
 async function cancelEditing() {
@@ -82,8 +134,7 @@ async function cancelEditing() {
     danger: true
   })
   if (!confirmed) return
-  history.reset()
-  router.push('/')
+  leaveEditor()
 }
 
 async function removeNote() {
@@ -95,9 +146,14 @@ async function removeNote() {
   })
   if (!confirmed) return
   store.deleteNote(draft.value.id)
-  history.reset()
-  router.push('/')
+  // Для новой заметки ключ черновика - «...:new», его deleteNote не трогает.
+  leaveEditor()
 }
+
+// Заметку удалили в другой вкладке - локальный черновик уже бесполезен.
+watch(notFound, (isMissing) => {
+  if (isMissing) persistedDraft.clear()
+})
 </script>
 
 <template>
@@ -105,7 +161,7 @@ async function removeNote() {
     <NuxtLink to="/" class="edit-page__back">← К списку заметок</NuxtLink>
 
     <p v-if="notFound" class="edit-page__not-found">
-      Заметка не найдена — возможно, она уже удалена.
+      Заметка не найдена - возможно, она уже удалена.
     </p>
 
     <template v-else>
