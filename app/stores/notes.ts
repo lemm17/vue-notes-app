@@ -25,5 +25,9 @@ export const useNotesStore = defineStore('notes', () => {
     repository.save(notes.value)
   }
 
-  return { notes, getNoteById, saveNote, deleteNote }
+  const reload = () => {
+    notes.value = repository.load() ?? []
+  }
+
+  return { notes, getNoteById, saveNote, deleteNote, reload }
 })
