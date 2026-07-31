@@ -162,6 +162,18 @@ async function cancelEditing() {
   leaveEditor()
 }
 
+async function goBackToList() {
+  if (notFound.value) {
+    router.push('/')
+    return
+  }
+  if (isDirty.value) {
+    await cancelEditing()
+    return
+  }
+  leaveEditor()
+}
+
 async function removeNote() {
   const confirmed = await confirm({
     title: 'Удалить заметку?',
@@ -183,7 +195,7 @@ watch(notFound, (isMissing) => {
 
 <template>
   <main class="edit-page">
-    <NuxtLink to="/" class="edit-page__back">← К списку заметок</NuxtLink>
+    <button type="button" class="edit-page__back" @click="goBackToList">← К списку заметок</button>
 
     <p v-if="notFound" class="edit-page__not-found">
       Заметка не найдена - возможно, она уже удалена.
@@ -301,7 +313,17 @@ watch(notFound, (isMissing) => {
   flex-shrink: 0;
   display: inline-block;
   margin-bottom: v.$space-md;
+  padding: 0;
+  border: 0;
+  background: none;
   color: v.$color-text-muted;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+
+  &:hover {
+    color: v.$color-text;
+  }
 }
 
 .edit-page__not-found {
